@@ -7,7 +7,7 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
   font-family: 'Orbitron', sans-serif;
   background-color: #000;
   background-image: url("Planarity Nexus_BG.jpg");
@@ -48,6 +48,7 @@ html, body {
   margin: 8% auto;
   text-align: center;
   animation: fadeInZoom 1.5s ease;
+  transition: all 0.3s ease;
 }
 
 @keyframes fadeInZoom {
@@ -100,6 +101,7 @@ html, body {
   color: #ffd700;
   transition: all 0.3s ease;
   box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+  cursor: pointer;
 }
 
 .big-btn:hover {
@@ -128,6 +130,7 @@ html, body {
   color: rgba(255,255,255,0.6);
   font-family: 'Inter', sans-serif;
 }
+
 /* === Overlay: Custom Planarity Nexus === */
 .overlay {
   position: fixed;
@@ -155,6 +158,7 @@ html, body {
   box-shadow: 0 0 35px rgba(255, 215, 0, 0.6);
   padding: 35px 50px;
   width: 400px;
+  max-width: 90vw;
   text-align: center;
   animation: fadeSlideUp 0.4s ease;
 }
@@ -230,6 +234,7 @@ html, body {
   background: #ffd700;
   color: #0b2f58;
 }
+
 /* === History Overlay === */
 .history-list {
   display: flex;
@@ -263,6 +268,7 @@ html, body {
   color: #ffd700;
   font-size: 1.1em;
 }
+
 .continue-section {
   display: flex;
   align-items: center;
@@ -275,4 +281,55 @@ html, body {
   border-radius: 6px;
   background: rgba(0, 0, 20, 0.8);
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+/* === RESPONSIVE DESIGN (Mobile + Tablet) === */
+@media (max-width: 600px) {
+  .menu-card {
+    width: 90%;
+    padding: 25px 20px;
+    border-radius: 15px;
+    margin: 10% auto;
+  }
+
+  .menu-logo {
+    width: 70px;
+  }
+
+  .menu-title {
+    font-size: 1.6em;
+  }
+
+  .menu-sub {
+    font-size: 0.85em;
+    margin-bottom: 20px;
+  }
+
+  .big-btn {
+    font-size: 1em;
+    padding: 10px 0;
+  }
+
+  .custom-card {
+    width: 90%;
+    padding: 25px 20px;
+  }
+
+  .custom-card h2 {
+    font-size: 1.2rem;
+  }
+
+  .mini-canvas {
+    width: 70px;
+    height: 55px;
+  }
+
+  .history-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .menu-foot {
+    font-size: 0.75em;
+  }
 }
