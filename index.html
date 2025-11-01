@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Planarity Nexus — Menu</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="menu-style.css">
+</head>
+<body class="menu-page">
+  <div class="menu-bg"></div>
+
+  <main class="menu-card">
+    <img src="Planarity_Nexus_Logo.png" alt="Planarity Nexus Logo" class="menu-logo">
+    <h1 class="menu-title">Planarity Nexus</h1>
+    <p class="menu-sub">Untangle constellations — make the graph planar ✨</p>
+
+    <div class="menu-buttons">
+      <a href="game.html?mode=play" class="big-btn gold-btn">▶ PLAY</a>
+      <button id="customBtn" class="big-btn">⚙️ Custom Planarity Nexus</button>
+      <button id="historyBtn" class="big-btn">📜 Planarity Nexus History</button>
+    </div>
+
+    <small class="menu-foot">Difficulty before play is set inside the game screen</small>
+  </main>
+
+  <!-- 🌌 Custom Planarity Nexus Overlay -->
+  <div id="customOverlay" class="overlay hidden">
+    <div class="custom-card">
+      <button id="backMain" class="back-btn">⭠ Back</button>
+      <h2>Custom Planarity Nexus</h2>
+      <div class="custom-buttons">
+        <div id="continueSection" class="continue-section">
+          <button id="continueBtn" class="custom-option">Continue current Planarity Nexus</button>
+          <canvas id="continuePreview" width="100" height="80" class="mini-canvas"></canvas>
+        </div>
+        <button id="difficultyBtn" class="custom-option">Difficulty : <span id="difficultyLabel">Easy</span></button>
+        <button id="startNewBtn" class="custom-option gold">START NEW</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🌠 Difficulty Selection Overlay -->
+  <div id="difficultyOverlay" class="overlay hidden">
+    <div class="custom-card">
+      <button id="backDifficulty" class="back-btn">⭠ Back</button>
+      <h2>Select Difficulty</h2>
+      <div class="custom-buttons">
+        <button data-diff="easy" class="custom-option">Easy</button>
+        <button data-diff="hard" class="custom-option">Hard</button>
+        <button data-diff="expert" class="custom-option">Expert</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📜 Planarity Nexus History Overlay -->
+  <div id="historyOverlay" class="overlay hidden">
+    <div class="custom-card">
+      <button id="backHistory" class="back-btn">⭠ Back</button>
+      <h2>Planarity Nexus History</h2>
+      <div id="historyList" class="history-list"></div>
+      <button id="clearHistoryBtn" class="custom-option gold" style="margin-top:10px;">🗑 Clear History</button>
+    </div>
+  </div>
+
+  <!-- === MENU SCRIPT === -->
+  <script>
+    const customBtn = document.getElementById("customBtn");
+    const historyBtn = document.getElementById("historyBtn");
+    const backMain = document.getElementById("backMain");
+    const backHistory = document.getElementById("backHistory");
+    const difficultyBtn = document.getElementById("difficultyBtn");
+    const backDifficulty = document.getElementById("backDifficulty");
+    const startNewBtn = document.getElementById("startNewBtn");
+    const diffBtns = document.querySelectorAll("[data-diff]");
+    const difficultyLabel = document.getElementById("difficultyLabel");
+    const continueBtn = document.getElementById("continueBtn");
+    const continuePreview = document.getElementById("continuePreview");
+    const customOverlay = document.getElementById("customOverlay");
+    const difficultyOverlay = document.getElementById("difficultyOverlay");
+    const historyOverlay = document.getElementById("historyOverlay");
+    const historyList = document.getElementById("historyList");
+    const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+
+    // === CUSTOM MENU ===
+    customBtn.onclick = () => {
+      updateContinuePreview();
+      customOverlay.classList.remove("hidden");
+    };
+    backMain.onclick = () => customOverlay.classList.add("hidden");
+
+    // === DIFFICULTY ===
+    difficultyBtn.onclick = () => {
+      customOverlay.classList.add("hidden");
+      difficultyOverlay.classList.remove("hidden");
+    };
+    backDifficulty.onclick = () => {
+      difficultyOverlay.classList.add("hidden");
+      customOverlay.classList.remove("hidden");
+    };
+    diffBtns.forEach(btn => {
+      btn.onclick = () => {
+        const level = btn.dataset.diff;
+        difficultyLabel.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+        window.location.href = `game.html?difficulty=${level}`;
+      };
+    });
+
+    startNewBtn.onclick = () => {
+      localStorage.removeItem("currentPlanarityGame");
+      window.location.href = "game.html?new=true";
+    };
+
+    // === CONTINUE BUTTON + PREVIEW ===
+    continueBtn.onclick = () => {
+      const hasGame = localStorage.getItem("currentPlanarityGame");
+      if (hasGame) {
+        window.location.href = "game.html?continue=true";
+      } else {
+        alert("No saved constellation to continue 🌌");
+      }
+    };
+
+    function updateContinuePreview() {
+      const saved = JSON.parse(localStorage.getItem("currentPlanarityGame"));
+      const ctx = continuePreview.getContext("2d");
+      ctx.clearRect(0, 0, continuePreview.width, continuePreview.height);
+      ctx.fillStyle = "rgba(0,0,15,0.9)";
+      ctx.fillRect(0, 0, continuePreview.width, continuePreview.height);
+
+      if (!saved || !saved.nodes || saved.nodes.length === 0) {
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "10px Orbitron";
+        ctx.fillText("No Saved", 20, 40);
+        continueBtn.disabled = true;
+        continueBtn.style.opacity = 0.6;
+        return;
+      }
+
+      continueBtn.disabled = false;
+      continueBtn.style.opacity = 1;
+
+      saved.edges.forEach(([a, b]) => {
+        const na = saved.nodes[a];
+        const nb = saved.nodes[b];
+        ctx.beginPath();
+        ctx.moveTo(na.x / 9, na.y / 9);
+        ctx.lineTo(nb.x / 9, nb.y / 9);
+        ctx.strokeStyle = "rgba(255,255,255,0.7)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      });
+
+      saved.nodes.forEach(n => {
+        ctx.beginPath();
+        ctx.arc(n.x / 9, n.y / 9, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff8b5";
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = "gold";
+        ctx.fill();
+      });
+    }
+
+    // === HISTORY ===
+    historyBtn.onclick = () => {
+      loadHistory();
+      historyOverlay.classList.remove("hidden");
+    };
+    backHistory.onclick = () => historyOverlay.classList.add("hidden");
+    clearHistoryBtn.onclick = () => {
+      localStorage.removeItem("planarityHistory");
+      loadHistory();
+    };
+
+    function loadHistory() {
+      const stored = JSON.parse(localStorage.getItem("planarityHistory")) || [];
+      historyList.innerHTML = "";
+      if (stored.length === 0) {
+        historyList.innerHTML = "<p>No planar constellations achieved yet ✨</p>";
+        return;
+      }
+
+      stored.reverse().forEach(entry => {
+        const div = document.createElement("div");
+        div.classList.add("history-item");
+        const canvas = document.createElement("canvas");
+        canvas.width = 100;
+        canvas.height = 80;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "rgba(0,0,15,0.9)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        entry.edges.forEach(([a, b]) => {
+          const na = entry.nodes[a];
+          const nb = entry.nodes[b];
+          ctx.beginPath();
+          ctx.moveTo(na.x * canvas.width, na.y * canvas.height);
+          ctx.lineTo(nb.x * canvas.width, nb.y * canvas.height);
+          ctx.strokeStyle = "rgba(255,255,255,0.6)";
+          ctx.stroke();
+        });
+        entry.nodes.forEach(n => {
+          ctx.beginPath();
+          ctx.arc(n.x * canvas.width, n.y * canvas.height, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#fff8b5";
+          ctx.shadowColor = "gold";
+          ctx.shadowBlur = 6;
+          ctx.fill();
+        });
+
+        const details = document.createElement("div");
+        details.classList.add("history-details");
+        details.innerHTML = `
+          <p><strong>🌟 ${entry.difficulty}</strong></p>
+          <p>Score: ${entry.score}</p>
+          <p>Moves: ${entry.moves}</p>
+          <p>Time: ${entry.time}</p>
+          <p>Date: ${entry.date}</p>
+        `;
+        div.appendChild(canvas);
+        div.appendChild(details);
+        historyList.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

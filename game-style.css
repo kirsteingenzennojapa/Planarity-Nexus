@@ -1,0 +1,142 @@
+/* === Planarity Nexus: True Galaxy Background Fix === */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Orbitron', sans-serif;
+  color: #ffd700;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: #000; /* <— This ensures no white background */
+  background-image: url("Planarity Nexus_BG.jpg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+
+#overlay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 95%;
+  height: 90%;
+  background: transparent; 
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: none; 
+}
+
+/* Sidebar matches galaxy tone */
+#sidebar {
+  width: 260px;
+  text-align: left;
+  padding: 20px;
+  background: rgba(0, 10, 25, 0.85); /* deep navy-blue */
+  border: 1px solid rgba(0, 180, 255, 0.3);
+  border-radius: 15px;
+  box-shadow: 0 0 25px rgba(0, 180, 255, 0.4);
+}
+
+h1 {
+  font-size: 1.8em;
+  color: #b9aa65;
+  text-shadow: 0 0 25px gold, 0 0 40px #ffaa00;
+}
+
+.subtitle {
+  font-size: 0.85em;
+  color: #aee6ff;
+  text-shadow: 0 0 8px #5cd9ff;
+  margin-top: -8px;
+  margin-bottom: 18px;
+}
+
+/* Stats Box */
+#stats {
+  background: rgba(0, 25, 50, 0.7);
+  border: 1px solid rgba(0, 180, 255, 0.4);
+  border-radius: 10px;
+  padding: 12px 15px;
+  box-shadow: 0 0 15px rgba(0, 180, 255, 0.3);
+  margin-bottom: 15px;
+}
+
+#stats p {
+  margin: 5px 0;
+  color: #aee6ff;
+}
+
+#stats strong {
+  color: #ffd700;
+}
+
+/* Button Styling */
+#controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+button {
+  background: linear-gradient(145deg, #071c3a, #0b2f58);
+  color: #ffd700;
+  border: 1px solid #ffd700;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+button:hover {
+  background: #ffd700;
+  color: #061830;
+  box-shadow: 0 0 25px gold, 0 0 50px #ffcc33;
+  transform: translateY(-2px);
+}
+
+/* Canvas Container */
+#canvasContainer {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+canvas {
+  background: radial-gradient(circle at center, rgba(5, 10, 25, 0.95), rgba(2, 5, 15, 0.9));
+  border: 2px solid #ffd700;
+  border-radius: 15px;
+  box-shadow: 0 0 45px rgba(255, 215, 0, 0.7);
+  cursor: grab;
+}
+
+canvas:active {
+  cursor: grabbing;
+}
+/* === Back to Menu Button === */
+.menu-return-btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffd700;
+  border: 1px solid #ffd700;
+  background: linear-gradient(145deg, #071c3a, #0b2f58);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.menu-return-btn:hover {
+  background: #ffd700;
+  color: #061830;
+  box-shadow: 0 0 25px gold, 0 0 50px #ffcc33;
+  transform: translateY(-2px);
+}

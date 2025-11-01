@@ -1,0 +1,278 @@
+/* === Planarity Nexus: Main Menu — Galactic Edition === */
+
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;600&display=swap");
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Orbitron', sans-serif;
+  background-color: #000;
+  background-image: url("Planarity Nexus_BG.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: #ffd700;
+}
+
+/* === Animated Subtle Starfield Overlay === */
+.menu-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03), rgba(0,0,0,0.9));
+  animation: subtleStars 25s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes subtleStars {
+  0% { background-position: 0 0; }
+  100% { background-position: 1000px 1000px; }
+}
+
+/* === Central Menu Card === */
+.menu-card {
+  position: relative;
+  z-index: 2;
+  background: rgba(0, 10, 25, 0.85);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
+  padding: 40px 60px;
+  width: 420px;
+  margin: 8% auto;
+  text-align: center;
+  animation: fadeInZoom 1.5s ease;
+}
+
+@keyframes fadeInZoom {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* === Logo === */
+.menu-logo {
+  width: 80px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 12px gold);
+}
+
+/* === Title === */
+.menu-title {
+  font-size: 2em;
+  color: #ffd700;
+  text-shadow: 0 0 25px gold, 0 0 40px #ffaa00;
+  margin: 0;
+}
+
+/* === Subtitle === */
+.menu-sub {
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  font-size: 0.95em;
+  color: #aee6ff;
+  text-shadow: 0 0 10px #5cd9ff;
+  margin-top: 5px;
+  margin-bottom: 30px;
+}
+
+/* === Buttons === */
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.big-btn {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 1.1em;
+  font-weight: 600;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid #ffd700;
+  background: linear-gradient(145deg, #071c3a, #0b2f58);
+  color: #ffd700;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+}
+
+.big-btn:hover {
+  background: #ffd700;
+  color: #061830;
+  transform: translateY(-3px);
+  box-shadow: 0 0 30px gold, 0 0 60px #ffcc33;
+}
+
+.gold-btn {
+  background: linear-gradient(145deg, #ffd700, #bfa200);
+  color: #111;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+}
+
+.gold-btn:hover {
+  background: #ffe770;
+  box-shadow: 0 0 35px gold, 0 0 80px #fff2a0;
+}
+
+/* === Footer Note === */
+.menu-foot {
+  display: block;
+  margin-top: 25px;
+  font-size: 0.8em;
+  color: rgba(255,255,255,0.6);
+  font-family: 'Inter', sans-serif;
+}
+/* === Overlay: Custom Planarity Nexus === */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.hidden {
+  display: none;
+}
+
+.custom-card {
+  background: rgba(0, 10, 25, 0.9);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 18px;
+  box-shadow: 0 0 35px rgba(255, 215, 0, 0.6);
+  padding: 35px 50px;
+  width: 400px;
+  text-align: center;
+  animation: fadeSlideUp 0.4s ease;
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.custom-card h2 {
+  color: #ffd700;
+  margin-bottom: 25px;
+  text-shadow: 0 0 15px gold;
+}
+
+.custom-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.custom-option {
+  background: linear-gradient(145deg, #071c3a, #0b2f58);
+  color: #ffd700;
+  border: 1px solid #ffd700;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.custom-option:hover {
+  background: #ffd700;
+  color: #061830;
+  box-shadow: 0 0 25px gold, 0 0 50px #ffcc33;
+}
+
+.custom-option.gold {
+  background: linear-gradient(145deg, #ffd700, #bfa200);
+  color: #111;
+}
+
+.back-btn {
+  position: absolute;
+  top: 15px;
+  left: 25px;
+  background: none;
+  border: none;
+  color: #aee6ff;
+  font-size: 1.2em;
+  cursor: pointer;
+}
+
+.difficulty-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.diff-btn {
+  background: #0b2f58;
+  border: 1px solid #ffd700;
+  border-radius: 8px;
+  padding: 8px;
+  color: #ffd700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.diff-btn:hover {
+  background: #ffd700;
+  color: #0b2f58;
+}
+/* === History Overlay === */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.history-item {
+  background: rgba(0, 25, 60, 0.8);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 10px;
+  padding: 10px 15px;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.history-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 20px gold, 0 0 40px #ffcc33;
+}
+
+.history-details p {
+  margin: 3px 0;
+  color: #aee6ff;
+}
+
+.history-details strong {
+  color: #ffd700;
+  font-size: 1.1em;
+}
+.continue-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.mini-canvas {
+  border: 1px solid gold;
+  border-radius: 6px;
+  background: rgba(0, 0, 20, 0.8);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}

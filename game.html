@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planarity Nexus — The Constellation Puzzle</title>
+  <link rel="stylesheet" href="game-style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="overlay">
+    <div id="sidebar">
+      <h1>🌌 Planarity Nexus</h1>
+      <p class="subtitle">Untangle constellations — make the graph planar ✨</p>
+
+      <!-- Stats Display -->
+      <div id="stats">
+        <p>Score: <strong id="score">0</strong></p>
+        <p>Moves: <strong id="moves">0</strong></p>
+        <p>Time: <strong id="timer">0s</strong></p>
+        <p>Planarity: <strong id="planarity">0%</strong></p>
+      </div>
+
+      <!-- Controls -->
+      <div id="controls">
+        <button id="resetBtn">Reset Graph</button>
+        <button id="hintBtn">AI Hint</button>
+        <button id="autoSolveBtn">Auto Solve (AI Mode)</button>
+        <button id="generateNewBtn">Generate New Graph</button>
+
+        <!-- 🔙 Back to Menu -->
+        <a href="index.html" class="menu-return-btn">⭠ Back to Menu</a>
+      </div>
+    </div>
+
+    <!-- Game Canvas -->
+    <div id="canvasContainer">
+      <canvas id="gameCanvas" width="900" height="600"></canvas>
+    </div>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
