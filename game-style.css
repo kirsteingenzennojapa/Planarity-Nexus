@@ -1,4 +1,3 @@
-/* === Planarity Nexus: True Galaxy Background Fix === */
 html, body {
   margin: 0;
   padding: 0;
@@ -7,7 +6,7 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background-color: #000; /* <— This ensures no white background */
+  background-color: #000;
   background-image: url("Planarity Nexus_BG.jpg");
   background-repeat: no-repeat;
   background-position: center;
@@ -28,12 +27,11 @@ html, body {
   box-shadow: none; 
 }
 
-/* Sidebar matches galaxy tone */
 #sidebar {
   width: 260px;
   text-align: left;
   padding: 20px;
-  background: rgba(0, 10, 25, 0.85); /* deep navy-blue */
+  background: rgba(0, 10, 25, 0.85); 
   border: 1px solid rgba(0, 180, 255, 0.3);
   border-radius: 15px;
   box-shadow: 0 0 25px rgba(0, 180, 255, 0.4);
@@ -53,7 +51,7 @@ h1 {
   margin-bottom: 18px;
 }
 
-/* Stats Box */
+
 #stats {
   background: rgba(0, 25, 50, 0.7);
   border: 1px solid rgba(0, 180, 255, 0.4);
@@ -72,7 +70,7 @@ h1 {
   color: #ffd700;
 }
 
-/* Button Styling */
+
 #controls {
   display: flex;
   flex-direction: column;
@@ -98,7 +96,7 @@ button:hover {
   transform: translateY(-2px);
 }
 
-/* Canvas Container */
+
 #canvasContainer {
   flex: 1;
   display: flex;
@@ -140,3 +138,4 @@ canvas:active {
   box-shadow: 0 0 25px gold, 0 0 50px #ffcc33;
   transform: translateY(-2px);
 }
+
