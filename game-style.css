@@ -229,7 +229,7 @@ canvas:active {
 }
 /* === Floating HUD Overlay === */
 #canvasContainer {
-  position: relative; /* needed for absolute HUD positioning */
+  position: relative; 
 }
 
 #floatingHUD {
@@ -259,3 +259,4 @@ canvas:active {
     padding: 6px 10px;
   }
 }
+
