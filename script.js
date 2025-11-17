@@ -1,3 +1,11 @@
+// === script.js ===
+// Planarity Nexus: Galaxy Edition (Rules 4 & 5 + HUD + difficulty multiplier + auto-continue)
+// - HUD shows live Complexity and Balance
+// - Per-level multiplier (Easy / Hard / Expert) applied to complexity score
+// - Balance scoring adjusted for smoother 40–100 range
+// - Timer stops when graph is planar
+// - Robust Generate New hookup preserved
+// - Auto-continue: when a graph is solved, automatically generate a new graph after a short pause
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -106,6 +114,9 @@ function generateGraph(numNodes = 6) {
     }
   }, 1000);
 
+  // Cancel any scheduled auto-continue (user generated new graph)
+  window._autoContinueScheduled = false;
+
   // Initialize crossings and draw
   initialCrossings = countCrossings();
   if (initialCrossings === 0) initialCrossings = 1;
@@ -135,7 +146,7 @@ function countCrossings() {
   return crossings;
 }
 
-
+// === EDGE LENGTH / BALANCE METRICS (Rule 5) ===
 function averageEdgeLength() {
   if (edges.length === 0) return 0;
   let total = 0;
@@ -160,6 +171,7 @@ function edgeLengthVariance() {
   return variance / edges.length;
 }
 
+// === ✅ Adjusted Balance Formula (smooth 40–100 range) ===
 function balanceBonusScore() {
   const varLen = edgeLengthVariance();
   if (edges.length === 0) return 0;
@@ -248,6 +260,9 @@ function drawGraph() {
       clearInterval(window._timerInterval);
       window._timerStopped = true;
     }
+
+    // schedule auto-continue (generate next graph) if not already scheduled
+    autoContinueIfSolved();
   }
 
   updatePlanarity(crossings);
@@ -596,6 +611,8 @@ if (!generateBtn) {
   const freshBtn = findGenerateNewButton();
   freshBtn.addEventListener("click", () => {
     window._planaritySaved = false;
+    
+    window._autoContinueScheduled = false;
     const num = Math.floor(Math.random() * 6) + 5;
     console.log("Generate New Graph clicked. nodes:", num);
     generateGraph(num);
@@ -603,6 +620,31 @@ if (!generateBtn) {
     drawGraph();
   });
   console.log("Generate New Graph button hooked up successfully.");
+}
+
+
+
+function autoContinueIfSolved() {
+  if (window._autoContinueScheduled) return; 
+ 
+  if (!nodes || nodes.length === 0) return;
+  window._autoContinueScheduled = true;
+
+  
+  setTimeout(() => {
+   
+    if (!window._autoContinueScheduled) return;
+
+    const nextNum = Math.max(4, Math.min(12, Math.round(nodes.length + (Math.random() * 3 - 1))));
+
+    window._planaritySaved = false;
+    window._timerStopped = false;
+    window._autoContinueScheduled = false;
+
+    generateGraph(nextNum);
+    createParticles();
+    drawGraph();
+  }, 2000); 
 }
 
 // === TIMER ===
