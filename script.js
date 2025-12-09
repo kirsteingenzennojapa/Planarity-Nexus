@@ -1,11 +1,14 @@
 // === script.js ===
-// Planarity Nexus: Galaxy Edition (Rules 4 & 5 + HUD + difficulty multiplier + auto-continue)
-// - HUD shows live Complexity and Balance
+// Planarity Nexus: Galaxy Edition (Rules 1–4 + HUD + difficulty multiplier + auto-continue)
+// - HUD shows live Complexity (no Balance score)
 // - Per-level multiplier (Easy / Hard / Expert) applied to complexity score
-// - Balance scoring adjusted for smoother 40–100 range
 // - Timer stops when graph is planar
 // - Robust Generate New hookup preserved
 // - Auto-continue: when a graph is solved, automatically generate a new graph after a short pause
+// - Difficulty node counts:
+//      Easy  -> 5 nodes
+//      Hard  -> 6–10 nodes
+//      Expert-> 11–20 nodes
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -32,6 +35,22 @@ function getDifficultyMultiplier() {
   return 1.0;
 }
 const DIFFICULTY_MULT = getDifficultyMultiplier();
+
+// === Node count per difficulty ===
+function getNodeCountByDifficulty() {
+  const diff = new URLSearchParams(window.location.search).get("difficulty") || "Easy";
+
+  if (/expert/i.test(diff)) {
+    // 11–20
+    return Math.floor(Math.random() * 10) + 11;
+  }
+  if (/hard/i.test(diff)) {
+    // 6–10
+    return Math.floor(Math.random() * 5) + 6;
+  }
+  // Easy: fixed 5 nodes
+  return 5;
+}
 
 // === STARFIELD BACKGROUND ===
 function createParticles(count = 120) {
@@ -74,11 +93,13 @@ function intersect(a, b, c, d) {
 }
 
 // === GRAPH GENERATION ===
-function generateGraph(numNodes = 6) {
+function generateGraph(numNodes = null) {
   nodes = [];
   edges = [];
 
   if (!canvas.width || !canvas.height) resizeCanvas();
+
+  if (!numNodes) numNodes = getNodeCountByDifficulty();
 
   const margin = 80;
   for (let i = 0; i < numNodes; i++) {
@@ -90,12 +111,26 @@ function generateGraph(numNodes = 6) {
     });
   }
 
-  // Random edges
-  for (let i = 0; i < numNodes - 1; i++) {
-    for (let j = i + 1; j < numNodes; j++) {
-      if (Math.random() < 0.35) edges.push([i, j]);
-    }
+  // === Random edges (with guaranteed connectivity) ===
+for (let i = 0; i < numNodes - 1; i++) {
+  for (let j = i + 1; j < numNodes; j++) {
+    if (Math.random() < 0.35) edges.push([i, j]);
   }
+}
+
+// ✅ Ensure every node has at least one connection
+for (let i = 0; i < numNodes; i++) {
+  const hasEdge = edges.some(([a, b]) => a === i || b === i);
+  if (!hasEdge) {
+    // randomly connect isolated node to another node
+    let target;
+    do {
+      target = Math.floor(Math.random() * numNodes);
+    } while (target === i);
+    edges.push([i, target]);
+  }
+}
+
 
   // Reset variables
   moves = 0;
@@ -124,7 +159,6 @@ function generateGraph(numNodes = 6) {
   drawGraph();
 }
 
-
 // === CROSSING DETECTION ===
 function countCrossings() {
   let crossings = 0;
@@ -144,43 +178,6 @@ function countCrossings() {
     }
   }
   return crossings;
-}
-
-// === EDGE LENGTH / BALANCE METRICS (Rule 5) ===
-function averageEdgeLength() {
-  if (edges.length === 0) return 0;
-  let total = 0;
-  for (const [a, b] of edges) {
-    const dx = nodes[a].x - nodes[b].x;
-    const dy = nodes[a].y - nodes[b].y;
-    total += Math.sqrt(dx * dx + dy * dy);
-  }
-  return total / edges.length;
-}
-
-function edgeLengthVariance() {
-  if (edges.length === 0) return 0;
-  const avg = averageEdgeLength();
-  let variance = 0;
-  for (const [a, b] of edges) {
-    const dx = nodes[a].x - nodes[b].x;
-    const dy = nodes[a].y - nodes[b].y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    variance += Math.pow(len - avg, 2);
-  }
-  return variance / edges.length;
-}
-
-// === ✅ Adjusted Balance Formula (smooth 40–100 range) ===
-function balanceBonusScore() {
-  const varLen = edgeLengthVariance();
-  if (edges.length === 0) return 0;
-
-  const scale = Math.max(canvas.width, canvas.height);
-  const normalizedVar = varLen / (scale * 2);
-  const smoothBonus = 100 / (1 + Math.pow(normalizedVar * 25, 1.3));
-  const bonus = Math.max(40, Math.min(100, smoothBonus));
-  return Math.round(bonus);
 }
 
 // === COMPLEXITY (Rule 4) ===
@@ -263,6 +260,8 @@ function drawGraph() {
 
     // schedule auto-continue (generate next graph) if not already scheduled
     autoContinueIfSolved();
+
+    
   }
 
   updatePlanarity(crossings);
@@ -270,16 +269,15 @@ function drawGraph() {
   saveCurrentProgress();
 }
 
-// === PLANARITY + SCORE ===
+// === PLANARITY + SCORE (no balance) ===
 function updatePlanarity(crossings) {
   if (!initialCrossings || initialCrossings <= 0) initialCrossings = Math.max(1, countCrossings());
   const progress = Math.max(0, initialCrossings - crossings);
   planarity = Math.round((progress / initialCrossings) * 100);
 
   const complexityScore = graphComplexityScore();
-  const balanceBonus = balanceBonusScore();
   const baseFromPlanarity = planarity * 12;
-  const raw = baseFromPlanarity + complexityScore + balanceBonus - (moves * 2) - timer;
+  const raw = baseFromPlanarity + complexityScore - (moves * 2) - timer;
   score = Math.max(0, Math.round(raw));
 
   updateStats();
@@ -289,13 +287,11 @@ function updatePlanarity(crossings) {
 function updateFloatingHUD() {
   if (!floatingHUD) return;
   const complexity = graphComplexityScore();
-  const balance = balanceBonusScore();
   const dif = new URLSearchParams(window.location.search).get("difficulty") || "Easy";
   floatingHUD.innerHTML = `
     <div style="display:flex;gap:10px;align-items:center;">
       <span>🌟 <strong>Result</strong></span>
       <span style="opacity:0.9">⚙️ Complexity: <strong>${complexity}</strong></span>
-      <span style="opacity:0.9">✨ Balance: <strong>${balance}</strong></span>
       <span style="opacity:0.85">🎚️ ${dif}</span>
     </div>
   `;
@@ -341,170 +337,87 @@ function aiHint() {
   drawGraph();
 }
 
-// === AUTO SOLVE  ===
+// === AUTO SOLVE (Instant Planarity Mode) ===
 function autoSolve() {
   if (solving) return;
   solving = true;
 
-  const maxTotalIterations = 6000;     
-  const frameBatch = 5;                
-  let totalIter = 0;
-  let stagnation = 0;                 
-  let lastCrossings = countCrossings();
+  console.log("Auto Solve Activated: Instant planarity solving...");
 
-  
-  function nodeCrossCounts() {
-    const c = Array(nodes.length).fill(0);
-    for (let i = 0; i < edges.length; i++) {
-      for (let j = i + 1; j < edges.length; j++) {
-        const [a1, a2] = edges[i], [b1, b2] = edges[j];
-        if (a1 === b1 || a1 === b2 || a2 === b1 || a2 === b2) continue;
-        if (intersect(nodes[a1], nodes[a2], nodes[b1], nodes[b2])) {
-          c[a1]++; c[a2]++; c[b1]++; c[b2]++;
-        }
-      }
-    }
-    return c;
-  }
-
-  function tryLocalImprove(idx, attempts = 8, maxDisp = Math.max(canvas.width, canvas.height) * 0.06) {
-    const original = { x: nodes[idx].x, y: nodes[idx].y };
-    let best = { x: original.x, y: original.y, crossings: countCrossings() };
-    for (let a = 0; a < attempts; a++) {
-      const nx = original.x + (Math.random() * 2 - 1) * maxDisp;
-      const ny = original.y + (Math.random() * 2 - 1) * maxDisp;
-      
-      nodes[idx].x = Math.max(10, Math.min(canvas.width - 10, nx));
-      nodes[idx].y = Math.max(10, Math.min(canvas.height - 10, ny));
-      const c = countCrossings();
-      if (c < best.crossings) best = { x: nodes[idx].x, y: nodes[idx].y, crossings: c };
-    }
-   
-    nodes[idx].x = best.x; nodes[idx].y = best.y;
-    return best.crossings;
-  }
-
-  
-  function stepFrame() {
-    
-    const currentCross = countCrossings();
-    if (currentCross === 0 || totalIter >= maxTotalIterations) {
-      solving = false;
-    
-      drawGraph();
-      return;
-    }
-
-   
-    const progressRatio = totalIter / Math.max(1, maxTotalIterations);
-    const lr = Math.max(0.002, 0.035 * (1 - progressRatio) + 0.002);
-
-    
-    for (let fb = 0; fb < frameBatch && totalIter < maxTotalIterations; fb++, totalIter++) {
-      
-      const forces = nodes.map(() => ({ fx: 0, fy: 0 }));
-
-      
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const ni = nodes[i], nj = nodes[j];
-          let dx = ni.x - nj.x, dy = ni.y - nj.y;
-          let dist2 = dx * dx + dy * dy;
-          if (dist2 < 0.0001) dist2 = 0.0001;
-          const dist = Math.sqrt(dist2);
-         
-          const rep = 1000 / dist2;
-          const ux = dx / dist, uy = dy / dist;
-          forces[i].fx += ux * rep; forces[i].fy += uy * rep;
-          forces[j].fx -= ux * rep; forces[j].fy -= uy * rep;
-        }
-      }
-
-      
-      for (const [a, b] of edges) {
-        const na = nodes[a], nb = nodes[b];
-        let dx = nb.x - na.x, dy = nb.y - na.y;
-        let dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
-        const target = 110; 
-        const k = 0.02;     
-        const force = (dist - target) * k;
-        const ux = dx / dist, uy = dy / dist;
-        forces[a].fx += ux * force; forces[a].fy += uy * force;
-        forces[b].fx -= ux * force; forces[b].fy -= uy * force;
-      }
-
-    
-      for (let i = 0; i < nodes.length; i++) {
-        nodes[i].x += forces[i].fx * lr;
-        nodes[i].y += forces[i].fy * lr;
-        // clamp inside canvas
-        nodes[i].x = Math.max(10, Math.min(canvas.width - 10, nodes[i].x));
-        nodes[i].y = Math.max(10, Math.min(canvas.height - 10, nodes[i].y));
-      }
-    } 
-
-    
-    if (totalIter % 60 === 0) {
-      const counts = nodeCrossCounts();
-      
-      const idxs = counts
-        .map((c, idx) => ({ c, idx }))
-        .sort((a, b) => b.c - a.c)
-        .slice(0, Math.min(3, nodes.length))
-        .map(o => o.idx);
-      for (const idx of idxs) {
-        const before = countCrossings();
-        const after = tryLocalImprove(idx, 10, Math.max(canvas.width, canvas.height) * 0.06);
-        if (after < before) {
-          
-          stagnation = 0;
-        }
-      }
-    }
-
-  
-    if (totalIter % 200 === 0) {
-      const jitterScale = Math.max(canvas.width, canvas.height) * 0.06;
-      for (let t = 0; t < Math.min(3, nodes.length); t++) {
-        const idx = Math.floor(Math.random() * nodes.length);
-        nodes[idx].x = Math.max(10, Math.min(canvas.width - 10, nodes[idx].x + (Math.random() - 0.5) * jitterScale));
-        nodes[idx].y = Math.max(10, Math.min(canvas.height - 10, nodes[idx].y + (Math.random() - 0.5) * jitterScale));
-      }
-    }
-
-    const newCross = countCrossings();
-    if (newCross >= lastCrossings) stagnation++; else stagnation = 0;
-    lastCrossings = newCross;
-
-    if (stagnation > 15) {
-      for (let r = 0; r < Math.min(3, Math.floor(nodes.length / 4)); r++) {
-        const idx = Math.floor(Math.random() * nodes.length);
-        nodes[idx].x = random(40, canvas.width - 40);
-        nodes[idx].y = random(40, canvas.height - 40);
-      }
-      stagnation = 0;
-    }
-
+  // If already solved, skip
+  if (countCrossings() === 0) {
+    solving = false;
     drawGraph();
+    return;
+  }
 
-    
-    if (countCrossings() === 0 || totalIter >= maxTotalIterations) {
-      solving = false;
-      drawGraph();
-      return;
+  const maxAttempts = 8000; // maximum repositioning attempts
+  const margin = 40;
+  let attempts = 0;
+
+  // Attempt random repositioning until no crossings remain
+  while (countCrossings() > 0 && attempts < maxAttempts) {
+    for (let i = 0; i < nodes.length; i++) {
+      // Randomly reposition nodes within safe canvas bounds
+      nodes[i].x = random(margin, canvas.width - margin);
+      nodes[i].y = random(margin, canvas.height - margin);
     }
-    requestAnimationFrame(stepFrame);
-  } 
+    attempts++;
+  }
 
-  
-  requestAnimationFrame(stepFrame);
+  // If still unsolved after many attempts, fallback heuristic
+  if (countCrossings() > 0) {
+    console.warn("Could not fully solve using random repositioning. Applying heuristic cleanup...");
+
+    // Heuristic: spread nodes evenly in circular layout
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) / 3;
+
+    for (let i = 0; i < nodes.length; i++) {
+      const angle = (2 * Math.PI * i) / nodes.length;
+      nodes[i].x = centerX + radius * Math.cos(angle);
+      nodes[i].y = centerY + radius * Math.sin(angle);
+    }
+  }
+
+  // Final check & draw
+  solving = false;
+  drawGraph();
+
+  const solved = countCrossings() === 0;
+  if (solved) {
+    console.log("✅ Graph solved instantly!");
+  } else {
+    console.warn("⚠️ Graph may still have minor crossings after max attempts.");
+  }
+
+  // Stop timer and save as solved
+  if (!window._timerStopped) {
+    clearInterval(window._timerInterval);
+    window._timerStopped = true;
+  }
+
+  // Trigger "Planar Achieved" visuals and scoring update
+  updateStats();
+  updateFloatingHUD();
+  savePlanarityHistory(
+    new URLSearchParams(window.location.search).get("difficulty") || "Unknown",
+    score,
+    moves,
+    timer
+  );
+  drawGraph();
 }
 
 
 // === SAVE HISTORY ===
 function savePlanarityHistory(difficulty, scoreVal, movesVal, timerVal) {
   const history = JSON.parse(localStorage.getItem("planarityHistory")) || [];
-  const nodeData = nodes.map(n => ({ x: (n.x / canvas.width).toFixed(3), y: (n.y / canvas.height).toFixed(3) }));
+  const nodeData = nodes.map(n => ({
+    x: (n.x / canvas.width).toFixed(3),
+    y: (n.y / canvas.height).toFixed(3)
+  }));
   const edgeData = edges.map(([a, b]) => [a, b]);
   const newRecord = {
     difficulty: difficulty || "Unknown",
@@ -514,8 +427,7 @@ function savePlanarityHistory(difficulty, scoreVal, movesVal, timerVal) {
     date: new Date().toLocaleString(),
     nodes: nodeData,
     edges: edgeData,
-    complexity: graphComplexityScore(),
-    balanceBonus: balanceBonusScore()
+    complexity: graphComplexityScore()
   };
   history.push(newRecord);
   localStorage.setItem("planarityHistory", JSON.stringify(history));
@@ -538,7 +450,12 @@ function saveCurrentProgress() {
 function loadCurrentProgress() {
   const saved = JSON.parse(localStorage.getItem("currentPlanarityGame"));
   if (!saved) return false;
-  nodes = saved.nodes.map(n => ({ x: n.x, y: n.y, radius: Math.max(8, Math.min(14, canvas.width * 0.012)), color: "#FFD700" }));
+  nodes = saved.nodes.map(n => ({
+    x: n.x,
+    y: n.y,
+    radius: Math.max(8, Math.min(14, canvas.width * 0.012)),
+    color: "#FFD700"
+  }));
   edges = saved.edges || [];
   moves = saved.moves || 0;
   timer = saved.timer || 0;
@@ -550,7 +467,7 @@ function loadCurrentProgress() {
   return true;
 }
 
-// === POINTER HANDLERS ===
+// === DRAG / POINTER HANDLERS ===
 function getPointerPosition(e) {
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches ? e.touches[0] : e;
@@ -611,9 +528,8 @@ if (!generateBtn) {
   const freshBtn = findGenerateNewButton();
   freshBtn.addEventListener("click", () => {
     window._planaritySaved = false;
-    
     window._autoContinueScheduled = false;
-    const num = Math.floor(Math.random() * 6) + 5;
+    const num = getNodeCountByDifficulty();
     console.log("Generate New Graph clicked. nodes:", num);
     generateGraph(num);
     createParticles();
@@ -622,20 +538,16 @@ if (!generateBtn) {
   console.log("Generate New Graph button hooked up successfully.");
 }
 
-
-
+// === AUTO CONTINUE ===
 function autoContinueIfSolved() {
   if (window._autoContinueScheduled) return; 
- 
   if (!nodes || nodes.length === 0) return;
   window._autoContinueScheduled = true;
 
-  
   setTimeout(() => {
-   
     if (!window._autoContinueScheduled) return;
 
-    const nextNum = Math.max(4, Math.min(12, Math.round(nodes.length + (Math.random() * 3 - 1))));
+    const nextNum = getNodeCountByDifficulty();
 
     window._planaritySaved = false;
     window._timerStopped = false;
@@ -647,15 +559,7 @@ function autoContinueIfSolved() {
   }, 2000); 
 }
 
-// === TIMER ===
-window._timerInterval = setInterval(() => {
-  if (!window._timerStopped) {
-    timer++;
-    updateStats();
-  }
-}, 1000);
-
-// === INIT ===
+// === INIT / TIMER (single source of truth is in generateGraph) ===
 createParticles();
 const params = new URLSearchParams(window.location.search);
 if (!loadCurrentProgress() || params.get("new") === "true") {
