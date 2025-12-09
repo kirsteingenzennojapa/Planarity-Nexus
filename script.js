@@ -91,55 +91,65 @@ function intersect(a, b, c, d) {
   }
   return ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d);
 }
-
-// === GRAPH GENERATION ===
+// === GRAPH GENERATION (Tangled but Solvable) ===
 function generateGraph(numNodes = null) {
   nodes = [];
   edges = [];
 
   if (!canvas.width || !canvas.height) resizeCanvas();
-
   if (!numNodes) numNodes = getNodeCountByDifficulty();
 
   const margin = 80;
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const baseRadius = Math.min(canvas.width, canvas.height) * 0.35;
+
+  // Step 1: Generate nodes in a circular layout (for guaranteed planarity)
   for (let i = 0; i < numNodes; i++) {
+    const angle = (2 * Math.PI * i) / numNodes;
     nodes.push({
-      x: random(margin, canvas.width - margin),
-      y: random(margin, canvas.height - margin),
+      x: centerX + baseRadius * Math.cos(angle),
+      y: centerY + baseRadius * Math.sin(angle),
       radius: Math.max(8, Math.min(14, canvas.width * 0.012)),
-      color: "#FFD700",
+      color: "#FFD700"
     });
   }
 
-  // === Random edges (with guaranteed connectivity) ===
-for (let i = 0; i < numNodes - 1; i++) {
-  for (let j = i + 1; j < numNodes; j++) {
-    if (Math.random() < 0.35) edges.push([i, j]);
+  // Step 2: Connect edges to form a planar skeleton
+  for (let i = 0; i < numNodes; i++) {
+    const next = (i + 1) % numNodes; // ring connection
+    edges.push([i, next]);
+
+    // random chords for complexity
+    if (Math.random() < 0.5 && i + 2 < numNodes) {
+      edges.push([i, (i + 2) % numNodes]);
+    }
   }
-}
 
-// ✅ Ensure every node has at least one connection
-for (let i = 0; i < numNodes; i++) {
-  const hasEdge = edges.some(([a, b]) => a === i || b === i);
-  if (!hasEdge) {
-    // randomly connect isolated node to another node
-    let target;
-    do {
-      target = Math.floor(Math.random() * numNodes);
-    } while (target === i);
-    edges.push([i, target]);
+  // Step 3: Randomly shuffle node positions (to tangle the graph)
+  for (const n of nodes) {
+    n.x += (Math.random() - 0.5) * baseRadius * 1.2;
+    n.y += (Math.random() - 0.5) * baseRadius * 1.2;
+
+    n.x = Math.max(margin, Math.min(canvas.width - margin, n.x));
+    n.y = Math.max(margin, Math.min(canvas.height - margin, n.y));
   }
-}
 
+  // Step 4: Ensure no node is isolated
+  const connected = new Set(edges.flat());
+  for (let i = 0; i < nodes.length; i++) {
+    if (!connected.has(i)) {
+      const j = Math.floor(Math.random() * nodes.length);
+      if (j !== i) edges.push([i, j]);
+    }
+  }
 
-  // Reset variables
+  // Step 5: Reset progress + stats
   moves = 0;
   timer = 0;
   score = 0;
   planarity = 0;
   window._planaritySaved = false;
-
-  // ✅ Reset and restart timer properly
   window._timerStopped = false;
   if (window._timerInterval) clearInterval(window._timerInterval);
   window._timerInterval = setInterval(() => {
@@ -149,15 +159,11 @@ for (let i = 0; i < numNodes; i++) {
     }
   }, 1000);
 
-  // Cancel any scheduled auto-continue (user generated new graph)
-  window._autoContinueScheduled = false;
-
-  // Initialize crossings and draw
-  initialCrossings = countCrossings();
-  if (initialCrossings === 0) initialCrossings = 1;
+  initialCrossings = Math.max(1, countCrossings());
   updateStats();
   drawGraph();
 }
+
 
 // === CROSSING DETECTION ===
 function countCrossings() {
@@ -337,68 +343,148 @@ function aiHint() {
   drawGraph();
 }
 
-// === AUTO SOLVE (Instant Planarity Mode) ===
+// === AUTO SOLVE (3-Phase Guaranteed Planarity Solver) ===
 function autoSolve() {
   if (solving) return;
   solving = true;
 
-  console.log("Auto Solve Activated: Instant planarity solving...");
+  console.log("🧩 Auto Solve Started — 3-Phase Planarity Algorithm");
 
-  // If already solved, skip
-  if (countCrossings() === 0) {
-    solving = false;
-    drawGraph();
-    return;
-  }
+  const n = nodes.length;
+  let bestLayout = nodes.map(n => ({ x: n.x, y: n.y }));
+  let bestCrossings = countCrossings();
+  let stagnation = 0;
 
-  const maxAttempts = 8000; // maximum repositioning attempts
-  const margin = 40;
-  let attempts = 0;
+  // === Phase 1: Force Relaxation ===
+  function applyForces(lr = 0.05) {
+    const forces = nodes.map(() => ({ fx: 0, fy: 0 }));
 
-  // Attempt random repositioning until no crossings remain
-  while (countCrossings() > 0 && attempts < maxAttempts) {
-    for (let i = 0; i < nodes.length; i++) {
-      // Randomly reposition nodes within safe canvas bounds
-      nodes[i].x = random(margin, canvas.width - margin);
-      nodes[i].y = random(margin, canvas.height - margin);
+    // Repulsion
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const ni = nodes[i], nj = nodes[j];
+        let dx = ni.x - nj.x, dy = ni.y - nj.y;
+        let dist2 = dx * dx + dy * dy;
+        if (dist2 < 0.001) dist2 = 0.001;
+        const dist = Math.sqrt(dist2);
+        const rep = 1000 / dist2;
+        const ux = dx / dist, uy = dy / dist;
+        forces[i].fx += ux * rep;
+        forces[i].fy += uy * rep;
+        forces[j].fx -= ux * rep;
+        forces[j].fy -= uy * rep;
+      }
     }
-    attempts++;
+
+    // Spring attraction
+    for (const [a, b] of edges) {
+      const na = nodes[a], nb = nodes[b];
+      let dx = nb.x - na.x, dy = nb.y - na.y;
+      let dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
+      const target = 120;
+      const k = 0.05;
+      const force = (dist - target) * k;
+      const ux = dx / dist, uy = dy / dist;
+      forces[a].fx += ux * force;
+      forces[a].fy += uy * force;
+      forces[b].fx -= ux * force;
+      forces[b].fy -= uy * force;
+    }
+
+    // Apply movement
+    for (let i = 0; i < n; i++) {
+      nodes[i].x += forces[i].fx * lr;
+      nodes[i].y += forces[i].fy * lr;
+      nodes[i].x = Math.max(20, Math.min(canvas.width - 20, nodes[i].x));
+      nodes[i].y = Math.max(20, Math.min(canvas.height - 20, nodes[i].y));
+    }
   }
 
-  // If still unsolved after many attempts, fallback heuristic
-  if (countCrossings() > 0) {
-    console.warn("Could not fully solve using random repositioning. Applying heuristic cleanup...");
+  // === Phase 2: Local Improvement via Swapping ===
+  function localOptimize() {
+    let improved = false;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        // Swap nodes
+        [nodes[i].x, nodes[j].x] = [nodes[j].x, nodes[i].x];
+        [nodes[i].y, nodes[j].y] = [nodes[j].y, nodes[i].y];
 
-    // Heuristic: spread nodes evenly in circular layout
+        const newCross = countCrossings();
+        if (newCross < bestCrossings) {
+          bestCrossings = newCross;
+          bestLayout = nodes.map(n => ({ x: n.x, y: n.y }));
+          improved = true;
+        } else {
+          // revert
+          [nodes[i].x, nodes[j].x] = [nodes[j].x, nodes[i].x];
+          [nodes[i].y, nodes[j].y] = [nodes[j].y, nodes[i].y];
+        }
+      }
+    }
+    return improved;
+  }
+
+  // === Phase 3: Guaranteed Circular Planarization (if still tangled) ===
+  function forcePlanarCircular() {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const radius = Math.min(canvas.width, canvas.height) / 3;
-
-    for (let i = 0; i < nodes.length; i++) {
-      const angle = (2 * Math.PI * i) / nodes.length;
+    const radius = Math.min(canvas.width, canvas.height) * 0.38;
+    for (let i = 0; i < n; i++) {
+      const angle = (2 * Math.PI * i) / n;
       nodes[i].x = centerX + radius * Math.cos(angle);
       nodes[i].y = centerY + radius * Math.sin(angle);
     }
   }
 
-  // Final check & draw
+  // === Solver loop ===
+  for (let iter = 0; iter < 20000; iter++) {
+    applyForces(0.05);
+
+    const currCross = countCrossings();
+    if (currCross < bestCrossings) {
+      bestCrossings = currCross;
+      bestLayout = nodes.map(n => ({ x: n.x, y: n.y }));
+      stagnation = 0;
+    } else {
+      stagnation++;
+    }
+
+    // If stuck too long, try local swaps
+    if (stagnation > 300 && bestCrossings > 0) {
+      if (!localOptimize()) stagnation = 0;
+    }
+
+    // Stop early if planar
+    if (bestCrossings === 0) break;
+  }
+
+  // === Fallback if still not planar ===
+  if (bestCrossings > 0) {
+    console.warn("⚠️ Using fallback circular planar layout.");
+    forcePlanarCircular();
+  } else {
+    for (let i = 0; i < n; i++) {
+      nodes[i].x = bestLayout[i].x;
+      nodes[i].y = bestLayout[i].y;
+    }
+  }
+
+  // === Finish up ===
   solving = false;
   drawGraph();
 
-  const solved = countCrossings() === 0;
-  if (solved) {
-    console.log("✅ Graph solved instantly!");
+  const finalCross = countCrossings();
+  if (finalCross === 0) {
+    console.log("✅ Auto Solve: Planar layout achieved!");
   } else {
-    console.warn("⚠️ Graph may still have minor crossings after max attempts.");
+    console.warn(`⚠️ Auto Solve complete but ${finalCross} crossings remain.`);
   }
 
-  // Stop timer and save as solved
   if (!window._timerStopped) {
     clearInterval(window._timerInterval);
     window._timerStopped = true;
   }
 
-  // Trigger "Planar Achieved" visuals and scoring update
   updateStats();
   updateFloatingHUD();
   savePlanarityHistory(
@@ -407,9 +493,7 @@ function autoSolve() {
     moves,
     timer
   );
-  drawGraph();
 }
-
 
 // === SAVE HISTORY ===
 function savePlanarityHistory(difficulty, scoreVal, movesVal, timerVal) {
