@@ -36,20 +36,20 @@ function getDifficultyMultiplier() {
 }
 const DIFFICULTY_MULT = getDifficultyMultiplier();
 
-// === Node count per difficulty ===
+// === Node count per difficulty (randomized for variety) ===
 function getNodeCountByDifficulty() {
   const diff = new URLSearchParams(window.location.search).get("difficulty") || "Easy";
 
   if (/expert/i.test(diff)) {
-    // 11–20
+    // 11–20 nodes
     return Math.floor(Math.random() * 10) + 11;
   }
   if (/hard/i.test(diff)) {
-    // 6–10
+    // 6–10 nodes
     return Math.floor(Math.random() * 5) + 6;
   }
-  // Easy: fixed 5 nodes
-  return 5;
+  // Easy: 3–5 nodes
+  return Math.floor(Math.random() * 3) + 3;
 }
 
 // === STARFIELD BACKGROUND ===
@@ -91,7 +91,8 @@ function intersect(a, b, c, d) {
   }
   return ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d);
 }
-// === GRAPH GENERATION (Tangled but Solvable) ===
+
+// === GRAPH GENERATION (always non-planar at start) ===
 function generateGraph(numNodes = null) {
   nodes = [];
   edges = [];
@@ -99,58 +100,97 @@ function generateGraph(numNodes = null) {
   if (!canvas.width || !canvas.height) resizeCanvas();
   if (!numNodes) numNodes = getNodeCountByDifficulty();
 
-  const margin = 80;
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
   const baseRadius = Math.min(canvas.width, canvas.height) * 0.35;
 
-  // Step 1: Generate nodes in a circular layout (for guaranteed planarity)
+  // --- Step 1: build a *planar* layout on a circle and remember it ---
+  const planarLayout = [];
   for (let i = 0; i < numNodes; i++) {
     const angle = (2 * Math.PI * i) / numNodes;
+    const x = centerX + baseRadius * Math.cos(angle);
+    const y = centerY + baseRadius * Math.sin(angle);
+    planarLayout.push({ x, y });
     nodes.push({
-      x: centerX + baseRadius * Math.cos(angle),
-      y: centerY + baseRadius * Math.sin(angle),
+      x, y,
       radius: Math.max(8, Math.min(14, canvas.width * 0.012)),
-      color: "#FFD700"
+      color: "#FFD700",
     });
   }
 
-  // Step 2: Connect edges to form a planar skeleton
+  // helper: will adding edge (i,j) cause a crossing in the planar layout?
+  function edgeWouldCross(i, j, edgeList, layout) {
+    const a = layout[i];
+    const b = layout[j];
+    for (const [u, v] of edgeList) {
+      if (i === u || i === v || j === u || j === v) continue;
+      if (intersect(a, b, layout[u], layout[v])) return true;
+    }
+    return false;
+  }
+
+  // --- Step 2: add edges without crossings in this layout ---
+  const diff = new URLSearchParams(window.location.search).get("difficulty") || "Easy";
+  let connectChance = 0.3;
+  if (/hard/i.test(diff)) connectChance = 0.5;
+  if (/expert/i.test(diff)) connectChance = 0.75;
+
+  const planarEdges = [];
   for (let i = 0; i < numNodes; i++) {
-    const next = (i + 1) % numNodes; // ring connection
-    edges.push([i, next]);
-
-    // random chords for complexity
-    if (Math.random() < 0.5 && i + 2 < numNodes) {
-      edges.push([i, (i + 2) % numNodes]);
+    for (let j = i + 1; j < numNodes; j++) {
+      if (Math.random() < connectChance && !edgeWouldCross(i, j, planarEdges, planarLayout)) {
+        planarEdges.push([i, j]);
+      }
     }
   }
 
-  // Step 3: Randomly shuffle node positions (to tangle the graph)
-  for (const n of nodes) {
-    n.x += (Math.random() - 0.5) * baseRadius * 1.2;
-    n.y += (Math.random() - 0.5) * baseRadius * 1.2;
-
-    n.x = Math.max(margin, Math.min(canvas.width - margin, n.x));
-    n.y = Math.max(margin, Math.min(canvas.height - margin, n.y));
+  // --- Step 3: ensure no node is isolated ---
+  const deg = new Array(numNodes).fill(0);
+  for (const [u, v] of planarEdges) {
+    deg[u]++; deg[v]++;
   }
-
-  // Step 4: Ensure no node is isolated
-  const connected = new Set(edges.flat());
-  for (let i = 0; i < nodes.length; i++) {
-    if (!connected.has(i)) {
-      const j = Math.floor(Math.random() * nodes.length);
-      if (j !== i) edges.push([i, j]);
+  for (let i = 0; i < numNodes; i++) {
+    if (deg[i] === 0) {
+      for (let step = 1; step < numNodes; step++) {
+        const j = (i + step) % numNodes;
+        if (!edgeWouldCross(i, j, planarEdges, planarLayout)) {
+          planarEdges.push([i, j]);
+          deg[i]++; deg[j]++;
+          break;
+        }
+      }
     }
   }
 
-  // Step 5: Reset progress + stats
+  edges = planarEdges;
+  window._planarLayout = planarLayout; // store the perfect layout for AI solve
+
+  // --- Step 4: scramble nodes (force at least one crossing) ---
+  const margin = 80;
+  let scrambledEnough = false;
+  let maxAttempts = 100;
+
+  while (!scrambledEnough && maxAttempts-- > 0) {
+    // randomize positions
+    for (const n of nodes) {
+      n.x = random(margin, canvas.width - margin);
+      n.y = random(margin, canvas.height - margin);
+    }
+
+    const crossings = countCrossings();
+    if (crossings > 0) {
+      scrambledEnough = true; // ✅ ensure tangled graph
+    }
+  }
+
+  // --- Step 5: reset stats ---
   moves = 0;
   timer = 0;
   score = 0;
   planarity = 0;
   window._planaritySaved = false;
   window._timerStopped = false;
+
   if (window._timerInterval) clearInterval(window._timerInterval);
   window._timerInterval = setInterval(() => {
     if (!window._timerStopped) {
@@ -159,10 +199,14 @@ function generateGraph(numNodes = null) {
     }
   }, 1000);
 
+  window._autoContinueScheduled = false;
+
   initialCrossings = Math.max(1, countCrossings());
   updateStats();
   drawGraph();
 }
+
+
 
 
 // === CROSSING DETECTION ===
@@ -265,7 +309,7 @@ function drawGraph() {
     }
 
     // schedule auto-continue (generate next graph) if not already scheduled
-    autoContinueIfSolved();
+    //autoContinueIfSolved();
 
     
   }
@@ -343,92 +387,30 @@ function aiHint() {
   drawGraph();
 }
 
-// === AUTO SOLVE (3-Phase Guaranteed Planarity Solver) ===
+// === AUTO SOLVE (planar + force-directed refinement) ===
 function autoSolve() {
   if (solving) return;
   solving = true;
 
-  console.log("🧩 Auto Solve Started — 3-Phase Planarity Algorithm");
+  console.log("🧠 Auto Solve: planar snap + force-directed refinement");
 
   const n = nodes.length;
-  let bestLayout = nodes.map(n => ({ x: n.x, y: n.y }));
-  let bestCrossings = countCrossings();
-  let stagnation = 0;
-
-  // === Phase 1: Force Relaxation ===
-  function applyForces(lr = 0.05) {
-    const forces = nodes.map(() => ({ fx: 0, fy: 0 }));
-
-    // Repulsion
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const ni = nodes[i], nj = nodes[j];
-        let dx = ni.x - nj.x, dy = ni.y - nj.y;
-        let dist2 = dx * dx + dy * dy;
-        if (dist2 < 0.001) dist2 = 0.001;
-        const dist = Math.sqrt(dist2);
-        const rep = 1000 / dist2;
-        const ux = dx / dist, uy = dy / dist;
-        forces[i].fx += ux * rep;
-        forces[i].fy += uy * rep;
-        forces[j].fx -= ux * rep;
-        forces[j].fy -= uy * rep;
-      }
-    }
-
-    // Spring attraction
-    for (const [a, b] of edges) {
-      const na = nodes[a], nb = nodes[b];
-      let dx = nb.x - na.x, dy = nb.y - na.y;
-      let dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
-      const target = 120;
-      const k = 0.05;
-      const force = (dist - target) * k;
-      const ux = dx / dist, uy = dy / dist;
-      forces[a].fx += ux * force;
-      forces[a].fy += uy * force;
-      forces[b].fx -= ux * force;
-      forces[b].fy -= uy * force;
-    }
-
-    // Apply movement
-    for (let i = 0; i < n; i++) {
-      nodes[i].x += forces[i].fx * lr;
-      nodes[i].y += forces[i].fy * lr;
-      nodes[i].x = Math.max(20, Math.min(canvas.width - 20, nodes[i].x));
-      nodes[i].y = Math.max(20, Math.min(canvas.height - 20, nodes[i].y));
-    }
+  if (n <= 1) {
+    solving = false;
+    return;
   }
 
-  // === Phase 2: Local Improvement via Swapping ===
-  function localOptimize() {
-    let improved = false;
+  // 1) Snap to stored planar layout (guaranteed 0 crossings)
+  if (window._planarLayout && window._planarLayout.length === n) {
     for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        // Swap nodes
-        [nodes[i].x, nodes[j].x] = [nodes[j].x, nodes[i].x];
-        [nodes[i].y, nodes[j].y] = [nodes[j].y, nodes[i].y];
-
-        const newCross = countCrossings();
-        if (newCross < bestCrossings) {
-          bestCrossings = newCross;
-          bestLayout = nodes.map(n => ({ x: n.x, y: n.y }));
-          improved = true;
-        } else {
-          // revert
-          [nodes[i].x, nodes[j].x] = [nodes[j].x, nodes[i].x];
-          [nodes[i].y, nodes[j].y] = [nodes[j].y, nodes[i].y];
-        }
-      }
+      nodes[i].x = window._planarLayout[i].x;
+      nodes[i].y = window._planarLayout[i].y;
     }
-    return improved;
-  }
-
-  // === Phase 3: Guaranteed Circular Planarization (if still tangled) ===
-  function forcePlanarCircular() {
+  } else {
+    // Fallback: simple circle
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const radius = Math.min(canvas.width, canvas.height) * 0.38;
+    const radius  = Math.min(canvas.width, canvas.height) * 0.38;
     for (let i = 0; i < n; i++) {
       const angle = (2 * Math.PI * i) / n;
       nodes[i].x = centerX + radius * Math.cos(angle);
@@ -436,48 +418,84 @@ function autoSolve() {
     }
   }
 
-  // === Solver loop ===
-  for (let iter = 0; iter < 20000; iter++) {
-    applyForces(0.05);
-
-    const currCross = countCrossings();
-    if (currCross < bestCrossings) {
-      bestCrossings = currCross;
-      bestLayout = nodes.map(n => ({ x: n.x, y: n.y }));
-      stagnation = 0;
-    } else {
-      stagnation++;
-    }
-
-    // If stuck too long, try local swaps
-    if (stagnation > 300 && bestCrossings > 0) {
-      if (!localOptimize()) stagnation = 0;
-    }
-
-    // Stop early if planar
-    if (bestCrossings === 0) break;
-  }
-
-  // === Fallback if still not planar ===
-  if (bestCrossings > 0) {
-    console.warn("⚠️ Using fallback circular planar layout.");
-    forcePlanarCircular();
+  // Make sure we're actually planar before we begin
+  if (countCrossings() !== 0) {
+    console.warn("Planar layout not 0-crossings, skipping refinement.");
   } else {
-    for (let i = 0; i < n; i++) {
-      nodes[i].x = bestLayout[i].x;
-      nodes[i].y = bestLayout[i].y;
+    // 2) Force-directed refinement that NEVER allows crossings
+    const ITERATIONS = 220;   // more iterations = more smoothing
+    const LR         = 0.07;  // step size
+    const TARGET_LEN = 130;   // preferred edge length
+    const K_SPRING   = 0.05;  // spring strength
+    const REPULSE    = 3500;  // repulsion strength
+
+    function clampNode(i) {
+      nodes[i].x = Math.max(20, Math.min(canvas.width  - 20, nodes[i].x));
+      nodes[i].y = Math.max(20, Math.min(canvas.height - 20, nodes[i].y));
+    }
+
+    for (let it = 0; it < ITERATIONS; it++) {
+      const forces = nodes.map(() => ({ fx: 0, fy: 0 }));
+
+      // --- node-node repulsion ---
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const ni = nodes[i], nj = nodes[j];
+          let dx = ni.x - nj.x;
+          let dy = ni.y - nj.y;
+          let dist2 = dx * dx + dy * dy;
+          if (dist2 < 0.0001) dist2 = 0.0001;
+          const dist = Math.sqrt(dist2);
+          const rep  = REPULSE / dist2;
+          const ux = dx / dist, uy = dy / dist;
+          forces[i].fx += ux * rep;
+          forces[i].fy += uy * rep;
+          forces[j].fx -= ux * rep;
+          forces[j].fy -= uy * rep;
+        }
+      }
+
+      // --- edge springs ---
+      for (const [a, b] of edges) {
+        const na = nodes[a], nb = nodes[b];
+        let dx = nb.x - na.x;
+        let dy = nb.y - na.y;
+        let dist = Math.sqrt(dx * dx + dy * dy) + 0.0001;
+        const force = (dist - TARGET_LEN) * K_SPRING;
+        const ux = dx / dist, uy = dy / dist;
+        forces[a].fx += ux * force;
+        forces[a].fy += uy * force;
+        forces[b].fx -= ux * force;
+        forces[b].fy -= uy * force;
+      }
+
+      // --- move nodes one-by-one; revert if any crossing appears ---
+      for (let i = 0; i < n; i++) {
+        const oldX = nodes[i].x;
+        const oldY = nodes[i].y;
+
+        nodes[i].x += forces[i].fx * LR;
+        nodes[i].y += forces[i].fy * LR;
+        clampNode(i);
+
+        // if this move breaks planarity, undo it
+        if (countCrossings() > 0) {
+          nodes[i].x = oldX;
+          nodes[i].y = oldY;
+        }
+      }
     }
   }
 
-  // === Finish up ===
-  solving = false;
+  // 3) Finalize: draw, stop timer, log
   drawGraph();
+  solving = false;
 
   const finalCross = countCrossings();
   if (finalCross === 0) {
-    console.log("✅ Auto Solve: Planar layout achieved!");
+    console.log("✅ Auto Solve: Planar layout (0 crossings) after refinement.");
   } else {
-    console.warn(`⚠️ Auto Solve complete but ${finalCross} crossings remain.`);
+    console.warn(`⚠️ Auto Solve finished with ${finalCross} crossings (should be rare).`);
   }
 
   if (!window._timerStopped) {
@@ -494,6 +512,7 @@ function autoSolve() {
     timer
   );
 }
+
 
 // === SAVE HISTORY ===
 function savePlanarityHistory(difficulty, scoreVal, movesVal, timerVal) {
@@ -622,7 +641,7 @@ if (!generateBtn) {
   console.log("Generate New Graph button hooked up successfully.");
 }
 
-// === AUTO CONTINUE ===
+/*/ === AUTO CONTINUE ===
 function autoContinueIfSolved() {
   if (window._autoContinueScheduled) return; 
   if (!nodes || nodes.length === 0) return;
@@ -642,6 +661,7 @@ function autoContinueIfSolved() {
     drawGraph();
   }, 2000); 
 }
+  */
 
 // === INIT / TIMER (single source of truth is in generateGraph) ===
 createParticles();
