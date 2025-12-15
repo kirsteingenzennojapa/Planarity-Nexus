@@ -26,6 +26,8 @@ let planarity = 0;
 let initialCrossings = 1;
 let solving = false;
 let particles = [];
+let aiHintData = null;
+
 
 // === Difficulty multiplier ===
 function getDifficultyMultiplier() {
@@ -314,6 +316,46 @@ function drawGraph() {
     
   }
 
+  // === AI Hint Overlay (draw last so it stays visible) ===
+if (aiHintData && aiHintData.alpha > 0) {
+  const { nodeIndex, target, alpha } = aiHintData;
+  const node = nodes[nodeIndex];
+  const angle = Math.atan2(target.y - node.y, target.x - node.x);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.setLineDash([10, 6]);
+  ctx.strokeStyle = "rgba(255,80,80,0.95)";
+  ctx.lineWidth = 2.5;
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "rgba(255,60,60,0.9)";
+  ctx.beginPath();
+  ctx.moveTo(node.x, node.y);
+  ctx.lineTo(target.x, target.y);
+  ctx.stroke();
+
+  // arrowhead at target
+  ctx.beginPath();
+  ctx.moveTo(target.x, target.y);
+  ctx.lineTo(target.x - 10 * Math.cos(angle - 0.3), target.y - 10 * Math.sin(angle - 0.3));
+  ctx.lineTo(target.x - 10 * Math.cos(angle + 0.3), target.y - 10 * Math.sin(angle + 0.3));
+  ctx.closePath();
+  ctx.fillStyle = "rgba(255,60,60,0.95)";
+  ctx.fill();
+
+  // highlight node and target
+  ctx.beginPath();
+  ctx.arc(node.x, node.y, node.radius + 4, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,100,100,0.9)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,100,100,0.8)";
+  ctx.fill();
+  ctx.restore();
+}
+
   updatePlanarity(crossings);
   updateFloatingHUD();
   saveCurrentProgress();
@@ -360,18 +402,19 @@ function updateStats() {
   if (elPlan) elPlan.innerText = `${planarity}%`;
 }
 
-// === AI HINT ===
+// === AI HINT (Instant Visual Teaching Direction) ===
 function aiHint() {
-  let nodeCrossCount = Array(nodes.length).fill(0);
+  if (!nodes.length || edges.length < 2) return;
+
+  // 1️⃣ Count crossings per node
+  const nodeCrossCount = Array(nodes.length).fill(0);
   for (let i = 0; i < edges.length; i++) {
     for (let j = i + 1; j < edges.length; j++) {
       const [a1, a2] = edges[i];
       const [b1, b2] = edges[j];
       if (
-        a1 !== b1 &&
-        a1 !== b2 &&
-        a2 !== b1 &&
-        a2 !== b2 &&
+        a1 !== b1 && a1 !== b2 &&
+        a2 !== b1 && a2 !== b2 &&
         intersect(nodes[a1], nodes[a2], nodes[b1], nodes[b2])
       ) {
         nodeCrossCount[a1]++; nodeCrossCount[a2]++;
@@ -379,13 +422,48 @@ function aiHint() {
       }
     }
   }
-  const worstNode = nodeCrossCount.indexOf(Math.max(...nodeCrossCount));
-  if (worstNode >= 0) {
-    nodes[worstNode].color = "#FFFF66";
-    setTimeout(() => { nodes[worstNode].color = "#FFD700"; drawGraph(); }, 1400);
+
+  // 2️⃣ Pick the worst node
+  const worstIndex = nodeCrossCount.indexOf(Math.max(...nodeCrossCount));
+  if (worstIndex < 0) return;
+  const node = nodes[worstIndex];
+
+  // 3️⃣ Try directions for best improvement
+  const step = 60;
+  let bestPos = { x: node.x, y: node.y };
+  let bestCross = countCrossings();
+
+  for (let angle = 0; angle < 2 * Math.PI; angle += Math.PI / 16) {
+    const newX = node.x + Math.cos(angle) * step;
+    const newY = node.y + Math.sin(angle) * step;
+    const oldX = node.x, oldY = node.y;
+    node.x = newX; node.y = newY;
+    const crosses = countCrossings();
+    node.x = oldX; node.y = oldY;
+    if (crosses < bestCross) {
+      bestCross = crosses;
+      bestPos = { x: newX, y: newY };
+    }
   }
-  drawGraph();
+
+  // 4️⃣ Save hint data for persistent drawing
+  aiHintData = {
+    nodeIndex: worstIndex,
+    target: bestPos,
+    alpha: 1.0,
+  };
+
+  // 5️⃣ Fade automatically over time
+  const fadeInterval = setInterval(() => {
+    if (!aiHintData) { clearInterval(fadeInterval); return; }
+    aiHintData.alpha -= 0.03;
+    if (aiHintData.alpha <= 0) {
+      aiHintData = null;
+      clearInterval(fadeInterval);
+    }
+  }, 60);
 }
+
 
 // === AUTO SOLVE (planar + force-directed refinement) ===
 function autoSolve() {
